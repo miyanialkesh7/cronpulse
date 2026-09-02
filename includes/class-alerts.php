@@ -334,6 +334,82 @@ class CronPulse_Alerts {
 	}
 
 	/**
+	 * Called on every page load for every recurring hook. Detects when a hook
+	 * is running less often than its schedule dictates — e.g. an hourly job
+	 * that only ran once in the last three hours. Complements overdue detection
+	 * (which flags a job that hasn't run yet) by catching jobs that run but not
+	 * at the expected frequency.
+	 *
+	 * Only evaluates hooks with a known positive interval. One-time events
+	 * (interval = 0) and hooks with no execution history are skipped.
+	 *
+	 * @param string $hook     The scheduled hook name.
+	 * @param int    $interval The hook's recurrence interval in seconds.
+	 */
+	public static function evaluate_missed( string $hook, int $interval ): void {
+		if ( $interval <= 0 ) {
+			return;
+		}
+
+		$settings = self::get_settings();
+		if ( ! $settings['enabled'] ) {
+			return;
+		}
+
+		// Look back 3 full intervals (capped at 7 days to keep the window sane
+		// for weekly or longer schedules).
+		$window       = min( 3 * $interval, 7 * DAY_IN_SECONDS );
+		$window_start = time() - $window;
+		$expected     = 3; // Always 3 because window = 3 * interval.
+
+		$log         = CronPulse_Cron_Tracker::get_log();
+		$has_history = false;
+		$actual      = 0;
+
+		foreach ( $log as $entry ) {
+			if ( ( $entry['hook'] ?? '' ) !== $hook ) {
+				continue;
+			}
+
+			$has_history = true;
+
+			if ( $entry['timestamp'] >= $window_start && 'success' === $entry['status'] ) {
+				$actual++;
+			}
+		}
+
+		// No history at all — job just scheduled or log was cleared. Skip to
+		// avoid a false-positive on first activation.
+		if ( ! $has_history ) {
+			return;
+		}
+
+		$streaks = get_option( CRONPULSE_OPTION_STREAKS, [] );
+		$entry   = $streaks[ $hook ] ?? self::default_streak();
+
+		if ( $actual < 2 ) {
+			// Ran 0 or 1 times when 3 were expected — fire alert once.
+			if ( ! $entry['missed_alerted'] ) {
+				self::notify( $hook, 'missed', [
+					'actual'   => $actual,
+					'expected' => $expected,
+					'window'   => $window,
+				] );
+				$entry['missed_alerted'] = true;
+			}
+		} else {
+			// Frequency is back to normal — send recovery if we had alerted.
+			if ( $entry['missed_alerted'] ) {
+				self::notify( $hook, 'recovery', [ 'previous_type' => 'missed' ] );
+			}
+			$entry['missed_alerted'] = false;
+		}
+
+		$streaks[ $hook ] = $entry;
+		update_option( CRONPULSE_OPTION_STREAKS, $streaks, false );
+	}
+
+	/**
 	 * Acknowledge the current incident for a hook without disabling alerts
 	 * globally — reuses the existing *_alerted guards, so no new notification
 	 * fires until this streak clears and a fresh one starts.
@@ -344,6 +420,7 @@ class CronPulse_Alerts {
 
 		$entry['failure_alerted'] = true;
 		$entry['overdue_alerted'] = true;
+		$entry['missed_alerted']  = true;
 
 		$streaks[ $hook ] = $entry;
 		update_option( CRONPULSE_OPTION_STREAKS, $streaks, false );
@@ -360,6 +437,7 @@ class CronPulse_Alerts {
 			'overdue_alerted' => false,
 			'failure_streak'  => 0,
 			'failure_alerted' => false,
+			'missed_alerted'  => false,
 		];
 	}
 
@@ -430,9 +508,13 @@ class CronPulse_Alerts {
 			$details[] = [ 'label' => __( 'Site', 'cronpulse' ), 'value' => $site ];
 		} elseif ( 'recovery' === $type ) {
 			$previous_type = (string) ( $context['previous_type'] ?? 'failure' );
-			$prev_label    = 'overdue' === $previous_type
-				? __( 'overdue', 'cronpulse' )
-				: __( 'failing', 'cronpulse' );
+			if ( 'overdue' === $previous_type ) {
+				$prev_label = __( 'overdue', 'cronpulse' );
+			} elseif ( 'missed' === $previous_type ) {
+				$prev_label = __( 'missing scheduled runs', 'cronpulse' );
+			} else {
+				$prev_label = __( 'failing', 'cronpulse' );
+			}
 
 			$subject = sprintf( '[Cron Pulse] %s has recovered on %s', $hook, $site );
 			$plain   = sprintf(
@@ -461,6 +543,58 @@ class CronPulse_Alerts {
 			if ( $last_run ) {
 				$details[] = [ 'label' => __( 'Last status', 'cronpulse' ), 'value' => ucfirst( $last_run['status'] ) ];
 				$details[] = [ 'label' => __( 'Recovered at', 'cronpulse' ), 'value' => CronPulse_Admin_Page::format_time( (int) $last_run['timestamp'] ) ];
+			}
+			$details[] = [ 'label' => __( 'Site', 'cronpulse' ), 'value' => $site ];
+		} elseif ( 'missed' === $type ) {
+			$actual   = (int) $context['actual'];
+			$expected = (int) $context['expected'];
+			$window   = (int) $context['window'];
+			$duration = human_time_diff( time() - $window, time() );
+
+			$subject = sprintf( '[Cron Pulse] %s is missing scheduled runs on %s', $hook, $site );
+			$plain   = sprintf(
+				"The cron hook \"%s\" ran only %d time(s) in the last %s. Expected %d runs based on its schedule.\n\nSite: %s\nDashboard: %s",
+				$hook,
+				$actual,
+				$duration,
+				$expected,
+				$site,
+				$dashboard
+			);
+			$short = '🟡 ' . sprintf(
+				/* translators: 1: cron hook name, 2: site domain, 3: actual count, 4: expected count */
+				__( '%1$s missing runs on %2$s — %3$d of %4$d expected', 'cronpulse' ),
+				$hook,
+				$site,
+				$actual,
+				$expected
+			);
+
+			$badge_color = '#b45309';
+			$badge_label = __( 'Missed Runs', 'cronpulse' );
+			$heading     = __( 'Cron job is missing scheduled runs', 'cronpulse' );
+			$intro       = sprintf(
+				/* translators: 1: actual run count, 2: human-readable duration, 3: expected count */
+				__( 'This hook ran only %1$d time(s) in the last %2$s. Expected %3$d runs based on its schedule.', 'cronpulse' ),
+				$actual,
+				$duration,
+				$expected
+			);
+
+			$details = [
+				[
+					'label' => __( 'Runs in window', 'cronpulse' ),
+					'value' => sprintf(
+						/* translators: 1: actual count, 2: expected count, 3: human-readable duration */
+						__( '%1$d of %2$d expected (last %3$s)', 'cronpulse' ),
+						$actual,
+						$expected,
+						$duration
+					),
+				],
+			];
+			if ( $last_run ) {
+				$details[] = [ 'label' => __( 'Last execution', 'cronpulse' ), 'value' => CronPulse_Admin_Page::format_time( (int) $last_run['timestamp'] ) ];
 			}
 			$details[] = [ 'label' => __( 'Site', 'cronpulse' ), 'value' => $site ];
 		} else {

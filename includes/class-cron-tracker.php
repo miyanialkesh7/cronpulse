@@ -60,12 +60,22 @@ class CronPulse_Cron_Tracker {
 			return;
 		}
 
-		$is_cron = wp_doing_cron();
+		$is_cron        = wp_doing_cron();
+		$missed_checked = [];
 
 		foreach ( $crons as $timestamp => $cron_hooks ) {
-			foreach ( array_keys( $cron_hooks ) as $hook ) {
+			foreach ( $cron_hooks as $hook => $cron_data ) {
 				self::check_stuck( $hook );
 				CronPulse_Alerts::evaluate_overdue( $hook, (int) $timestamp );
+
+				// evaluate_missed() is hook-level, not timestamp-level — only
+				// run it once per hook even if it appears at multiple timestamps.
+				if ( ! isset( $missed_checked[ $hook ] ) ) {
+					$first_entry            = reset( $cron_data );
+					$interval               = isset( $first_entry['interval'] ) ? (int) $first_entry['interval'] : 0;
+					CronPulse_Alerts::evaluate_missed( $hook, $interval );
+					$missed_checked[ $hook ] = true;
+				}
 
 				if ( ! $is_cron || isset( self::$tracked[ $hook ] ) ) {
 					continue;
