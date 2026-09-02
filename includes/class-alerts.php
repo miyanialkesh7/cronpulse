@@ -282,8 +282,13 @@ class CronPulse_Alerts {
 				$entry['overdue_alerted'] = true;
 			}
 		} else {
+			$was_alerted              = $entry['overdue_alerted'];
 			$entry['overdue_since']   = null;
 			$entry['overdue_alerted'] = false;
+
+			if ( $was_alerted ) {
+				self::notify( $hook, 'recovery', [ 'previous_type' => 'overdue' ] );
+			}
 		}
 
 		$streaks[ $hook ] = $entry;
@@ -315,8 +320,13 @@ class CronPulse_Alerts {
 				$entry['failure_alerted'] = true;
 			}
 		} else {
+			$was_alerted              = $entry['failure_alerted'];
 			$entry['failure_streak']  = 0;
 			$entry['failure_alerted'] = false;
+
+			if ( $was_alerted ) {
+				self::notify( $hook, 'recovery', [ 'previous_type' => 'failure' ] );
+			}
 		}
 
 		$streaks[ $hook ] = $entry;
@@ -416,6 +426,41 @@ class CronPulse_Alerts {
 						CronPulse_Admin_Page::format_time( (int) $last_run['timestamp'] )
 					),
 				];
+			}
+			$details[] = [ 'label' => __( 'Site', 'cronpulse' ), 'value' => $site ];
+		} elseif ( 'recovery' === $type ) {
+			$previous_type = (string) ( $context['previous_type'] ?? 'failure' );
+			$prev_label    = 'overdue' === $previous_type
+				? __( 'overdue', 'cronpulse' )
+				: __( 'failing', 'cronpulse' );
+
+			$subject = sprintf( '[Cron Pulse] %s has recovered on %s', $hook, $site );
+			$plain   = sprintf(
+				"The cron hook \"%s\" has recovered and is running successfully again.\n\nSite: %s\nDashboard: %s",
+				$hook,
+				$site,
+				$dashboard
+			);
+			$short = '🟢 ' . sprintf(
+				/* translators: 1: cron hook name, 2: site domain */
+				__( '%1$s has recovered on %2$s', 'cronpulse' ),
+				$hook,
+				$site
+			);
+
+			$badge_color = '#00a32a';
+			$badge_label = __( 'Recovered', 'cronpulse' );
+			$heading     = __( 'Cron job has recovered', 'cronpulse' );
+			$intro       = sprintf(
+				/* translators: %s = "failing" or "overdue" */
+				__( 'This hook was previously %s and is now running successfully again.', 'cronpulse' ),
+				$prev_label
+			);
+
+			$details = [];
+			if ( $last_run ) {
+				$details[] = [ 'label' => __( 'Last status', 'cronpulse' ), 'value' => ucfirst( $last_run['status'] ) ];
+				$details[] = [ 'label' => __( 'Recovered at', 'cronpulse' ), 'value' => CronPulse_Admin_Page::format_time( (int) $last_run['timestamp'] ) ];
 			}
 			$details[] = [ 'label' => __( 'Site', 'cronpulse' ), 'value' => $site ];
 		} else {
