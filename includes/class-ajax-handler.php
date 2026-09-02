@@ -82,7 +82,7 @@ class CronPulse_Ajax_Handler {
 		$start     = microtime( true );
 
 		try {
-			do_action_ref_array( $hook, $args );
+			do_action_ref_array( $hook, $args ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.DynamicHooknameFound -- intentionally firing existing WP cron hooks, not registering new ones
 		} catch ( \Throwable $e ) {
 			$exception = $e;
 		} finally {

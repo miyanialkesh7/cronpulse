@@ -2,7 +2,7 @@
 Contributors:      farhanalidev, alkesh7
 Tags:              cron, cron jobs, wp-cron, developer tools, debugging
 Requires at least: 5.8
-Tested up to:      7.0
+Tested up to:      7.1
 Stable tag:        1.2.0
 Requires PHP:      7.4
 License:           GPL-2.0-or-later
