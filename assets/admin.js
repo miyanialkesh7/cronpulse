@@ -271,6 +271,34 @@
 	} );
 
 	// -------------------------------------------------------------------------
+	// System cron recommendation toggle
+	// -------------------------------------------------------------------------
+	$( document ).on( 'click', '.cp-syscron-toggle', function () {
+		const $btn  = $( this );
+		const $body = $btn.closest( '.cp-syscron-notice' ).find( '.cp-syscron-body' );
+		const open  = $body.prop( 'hidden' );
+		$body.prop( 'hidden', ! open );
+		$btn.attr( 'aria-expanded', open ? 'true' : 'false' );
+		$btn.find( '.cp-syscron-arrow' ).text( open ? '▴' : '▾' );
+	} );
+
+	// -------------------------------------------------------------------------
+	// Copy cron command to clipboard
+	// -------------------------------------------------------------------------
+	$( document ).on( 'click', '.cp-copy-cmd', function () {
+		const cmd = $( this ).data( 'cmd' );
+		if ( ! navigator.clipboard ) {
+			return;
+		}
+		const $btn = $( this );
+		navigator.clipboard.writeText( cmd ).then( function () {
+			const orig = $btn.text();
+			$btn.text( 'Copied!' );
+			setTimeout( function () { $btn.text( orig ); }, 2000 );
+		} );
+	} );
+
+	// -------------------------------------------------------------------------
 	// Clear log
 	// -------------------------------------------------------------------------
 	$( document ).on( 'click', '.cp-clear-log', function () {

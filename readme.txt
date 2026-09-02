@@ -3,7 +3,7 @@ Contributors:      farhanalidev, alkesh7
 Tags:              cron, cron jobs, wp-cron, developer tools, debugging
 Requires at least: 5.8
 Tested up to:      7.0
-Stable tag:        1.1.1
+Stable tag:        1.2.0
 Requires PHP:      7.4
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
@@ -110,6 +110,13 @@ Check the Email Debug Log on the Email Log tab. When SMTP is enabled it captures
 
 == Changelog ==
 
+= 1.2.0 =
+* New: Recovery notifications — get alerted when a previously failing or overdue job returns to healthy
+* New: WordPress Site Health integration — failing/overdue jobs and pseudo-cron usage surface on Tools → Site Health
+* New: Missed-run detection — alerts when a recurring job runs significantly less often than its schedule requires
+* New: Output capture on Run Now — hook output and PHP errors are captured and shown inline in the dashboard
+* New: System cron detection — dashboard and Site Health flag when pseudo-cron is active and show the exact crontab command to switch to a real system cron
+
 = 1.1.1 =
 * Fix: Uninstall now also removes the SMTP debug log file and its `.htaccess`/`index.php` guards under `wp-content/uploads/cronpulse-logs/`, matching the Privacy section's "all data is deleted on plugin uninstall"
 * Improved: Added a contributor, expanded the plugin description, and completed a PHPCS/doc-comment pass — no functional changes to existing features
@@ -131,6 +138,9 @@ Check the Email Debug Log on the Email Log tab. When SMTP is enabled it captures
 * Initial release
 
 == Upgrade Notice ==
+
+= 1.2.0 =
+Five new features: recovery notifications, Site Health integration, missed-run detection, Run Now output capture, and system cron detection. No data changes or breaking changes.
 
 = 1.1.1 =
 Uninstall now fully removes the SMTP debug log directory too. Maintenance release — no other functional changes.

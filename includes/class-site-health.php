@@ -26,7 +26,47 @@ class CronPulse_Site_Health {
 			'test'  => [ __CLASS__, 'get_result' ],
 		];
 
+		$tests['direct']['cronpulse_cron_source'] = [
+			'label' => __( 'Cron scheduling method', 'cronpulse' ),
+			'test'  => [ __CLASS__, 'get_cron_source_result' ],
+		];
+
 		return $tests;
+	}
+
+	/**
+	 * Build and return the Site Health result for the cron scheduling method in use.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function get_cron_source_result(): array {
+		$using_system_cron = defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON;
+		$dashboard_url     = admin_url( 'tools.php?page=cronpulse' );
+		$actions           = '<a href="' . esc_url( $dashboard_url ) . '">' . __( 'Open Cron Pulse dashboard', 'cronpulse' ) . '</a>';
+
+		if ( $using_system_cron ) {
+			return [
+				'label'       => __( 'System cron is configured', 'cronpulse' ),
+				'status'      => 'good',
+				'badge'       => [ 'label' => __( 'Performance', 'cronpulse' ), 'color' => 'blue' ],
+				'description' => '<p>' . __( 'DISABLE_WP_CRON is set, so cron jobs are handled by a real system cron rather than page-visit-triggered pseudo-cron. This is the recommended setup for reliable job execution.', 'cronpulse' ) . '</p>',
+				'actions'     => $actions,
+				'test'        => 'cronpulse_cron_source',
+			];
+		}
+
+		$cron_cmd = '*/5 * * * * curl -s "' . site_url( 'wp-cron.php?doing_wp_cron' ) . '" > /dev/null 2>&1';
+
+		return [
+			'label'       => __( 'WP pseudo-cron is active', 'cronpulse' ),
+			'status'      => 'recommended',
+			'badge'       => [ 'label' => __( 'Performance', 'cronpulse' ), 'color' => 'orange' ],
+			'description' => '<p>' . __( 'WP pseudo-cron relies on site visitors to trigger scheduled jobs. On low-traffic sites, jobs may run late or not at all.', 'cronpulse' ) . '</p>' .
+				'<p>' . __( 'To switch to a real system cron: add <code>define( \'DISABLE_WP_CRON\', true );</code> to wp-config.php, then add this crontab entry:', 'cronpulse' ) . '</p>' .
+				'<p><code>' . esc_html( $cron_cmd ) . '</code></p>',
+			'actions'     => $actions,
+			'test'        => 'cronpulse_cron_source',
+		];
 	}
 
 	/**

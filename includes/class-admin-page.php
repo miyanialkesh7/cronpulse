@@ -167,9 +167,37 @@ class CronPulse_Admin_Page {
 					<span class="cp-label"><?php esc_html_e( 'Never Run', 'cronpulse' ); ?></span>
 				</div>
 				<?php if ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ) : ?>
-				<div class="cp-notice-inline cp-warn">
-					<span class="dashicons dashicons-warning"></span>
-					<?php esc_html_e( 'DISABLE_WP_CRON is set — crons will not fire automatically.', 'cronpulse' ); ?>
+				<div class="cp-notice-inline cp-ok">
+					<span class="dashicons dashicons-yes-alt"></span>
+					<?php esc_html_e( 'System cron is active — WP pseudo-cron is disabled.', 'cronpulse' ); ?>
+				</div>
+				<?php else : ?>
+				<div class="cp-syscron-notice">
+					<div class="cp-syscron-header">
+						<span class="dashicons dashicons-clock"></span>
+						<strong><?php esc_html_e( 'Pseudo-cron is active', 'cronpulse' ); ?></strong>
+						<button type="button" class="cp-syscron-toggle" aria-expanded="false">
+							<?php esc_html_e( 'Show recommendation', 'cronpulse' ); ?> <span class="cp-syscron-arrow">▾</span>
+						</button>
+					</div>
+					<div class="cp-syscron-body" hidden>
+						<p><?php esc_html_e( 'WP pseudo-cron relies on site visitors to trigger scheduled jobs. On low-traffic sites, jobs may run late or not at all. A real system cron fires on a fixed schedule regardless of traffic.', 'cronpulse' ); ?></p>
+						<p><strong><?php esc_html_e( 'Step 1 — Add to wp-config.php:', 'cronpulse' ); ?></strong></p>
+						<div class="cp-syscron-cmd-wrap">
+							<code class="cp-syscron-cmd">define( 'DISABLE_WP_CRON', true );</code>
+							<button type="button" class="cp-copy-cmd button-link" data-cmd="define( 'DISABLE_WP_CRON', true );"><?php esc_html_e( 'Copy', 'cronpulse' ); ?></button>
+						</div>
+						<p><strong><?php esc_html_e( 'Step 2 — Add a system crontab entry (every 5 minutes):', 'cronpulse' ); ?></strong></p>
+						<?php
+						$cron_url = esc_url( site_url( 'wp-cron.php?doing_wp_cron' ) );
+						$cron_cmd = '*/5 * * * * curl -s "' . site_url( 'wp-cron.php?doing_wp_cron' ) . '" > /dev/null 2>&1';
+						?>
+						<div class="cp-syscron-cmd-wrap">
+							<code class="cp-syscron-cmd"><?php echo esc_html( $cron_cmd ); ?></code>
+							<button type="button" class="cp-copy-cmd button-link" data-cmd="<?php echo esc_attr( $cron_cmd ); ?>"><?php esc_html_e( 'Copy', 'cronpulse' ); ?></button>
+						</div>
+						<p class="cp-syscron-note"><?php esc_html_e( 'Run "crontab -e" on your server to add the entry. Adjust the path to curl if needed. Some managed hosts have a cron scheduler in their control panel.', 'cronpulse' ); ?></p>
+					</div>
 				</div>
 				<?php endif; ?>
 			</div>
