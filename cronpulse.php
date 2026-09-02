@@ -33,6 +33,7 @@ require_once CRONPULSE_PLUGIN_DIR . 'includes/class-ajax-handler.php';
 require_once CRONPULSE_PLUGIN_DIR . 'includes/class-alerts.php';
 require_once CRONPULSE_PLUGIN_DIR . 'includes/class-admin-bar.php';
 require_once CRONPULSE_PLUGIN_DIR . 'includes/class-rest.php';
+require_once CRONPULSE_PLUGIN_DIR . 'includes/class-site-health.php';
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once CRONPULSE_PLUGIN_DIR . 'includes/class-cli.php';
@@ -48,6 +49,7 @@ add_action( 'plugins_loaded', function () {
 	CronPulse_Alerts::init();
 	CronPulse_Admin_Bar::init();
 	CronPulse_REST_Controller::init();
+	CronPulse_Site_Health::init();
 } );
 
 /**
