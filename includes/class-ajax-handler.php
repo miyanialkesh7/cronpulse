@@ -60,10 +60,63 @@ class CronPulse_Ajax_Handler {
 			}
 		}
 
-		// Fire the hook and measure execution time.
-		$start    = microtime( true );
-		do_action_ref_array( $hook, $args );
-		$duration = (int) round( ( microtime( true ) - $start ) * 1000 );
+		// Capture any output or PHP errors the hook emits.
+		$captured_errors = [];
+		set_error_handler( static function ( int $errno, string $errstr, string $errfile, int $errline ) use ( &$captured_errors ): bool { // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_set_error_handler
+			$labels = [
+				E_WARNING         => 'Warning',
+				E_NOTICE          => 'Notice',
+				E_USER_WARNING    => 'Warning',
+				E_USER_NOTICE     => 'Notice',
+				E_USER_ERROR      => 'Error',
+				E_DEPRECATED      => 'Deprecated',
+				E_USER_DEPRECATED => 'Deprecated',
+			];
+			$label            = $labels[ $errno ] ?? 'Error';
+			$captured_errors[] = sprintf( '[%s] %s in %s on line %d', $label, $errstr, $errfile, $errline );
+			return true; // Suppress default PHP output.
+		}, E_ALL & ~E_STRICT );
+
+		ob_start();
+		$exception = null;
+		$start     = microtime( true );
+
+		try {
+			do_action_ref_array( $hook, $args );
+		} catch ( \Throwable $e ) {
+			$exception = $e;
+		} finally {
+			$duration = (int) round( ( microtime( true ) - $start ) * 1000 );
+			$output   = (string) ob_get_clean();
+			restore_error_handler();
+		}
+
+		$parts = [];
+		if ( '' !== $output ) {
+			$parts[] = $output;
+		}
+		if ( ! empty( $captured_errors ) ) {
+			$parts[] = implode( "\n", $captured_errors );
+		}
+		if ( null !== $exception ) {
+			$parts[] = sprintf( 'Exception: %s', $exception->getMessage() );
+		}
+		$combined = implode( "\n", $parts );
+
+		if ( null !== $exception ) {
+			CronPulse_Cron_Tracker::log_execution( $hook, 'fatal', $duration, $exception->getMessage() );
+			wp_send_json_error( [
+				'message'  => sprintf(
+					/* translators: 1: cron hook name, 2: exception message */
+					__( 'Hook "%1$s" threw an exception: %2$s', 'cronpulse' ),
+					esc_html( $hook ),
+					esc_html( $exception->getMessage() )
+				),
+				'duration' => $duration,
+				'output'   => $combined,
+			] );
+			return;
+		}
 
 		CronPulse_Cron_Tracker::log_execution( $hook, 'success', $duration );
 
@@ -75,6 +128,7 @@ class CronPulse_Ajax_Handler {
 				$duration
 			),
 			'duration' => $duration,
+			'output'   => $combined,
 		] );
 	}
 

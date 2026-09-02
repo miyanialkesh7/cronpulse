@@ -796,6 +796,36 @@ button.cp-test-webhook {
 	flex-wrap: wrap;
 }
 
+/* Run Now output capture ---------------------------------- */
+.cp-run-output {
+	margin-top: 12px;
+}
+
+.cp-run-output strong {
+	display: block;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: .05em;
+	color: #6b7280;
+	margin-bottom: 6px;
+}
+
+.cp-run-output pre {
+	margin: 0;
+	padding: 10px 12px;
+	background: #1e1e1e;
+	color: #d4d4d4;
+	font-family: Menlo, Consolas, monospace;
+	font-size: 12px;
+	line-height: 1.6;
+	border-radius: 4px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	word-break: break-all;
+	max-height: 300px;
+	overflow-y: auto;
+}
+
 /* Execution log improvements ------------------------------ */
 .cp-log-top-bar {
 	display: flex;

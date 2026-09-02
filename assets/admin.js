@@ -235,6 +235,17 @@
 					$mainRow.next( '.cp-job-detail' ).find( '.cp-duration-text' ).text( res.data.duration + ' ms' );
 				}
 
+				const $detail = $mainRow.next( '.cp-job-detail' );
+				$detail.find( '.cp-run-output' ).remove();
+				if ( res.data.output && res.data.output.trim() !== '' ) {
+					$detail.append(
+						'<div class="cp-run-output">' +
+						'<strong>Output</strong>' +
+						'<pre>' + $( '<div>' ).text( res.data.output ).html() + '</pre>' +
+						'</div>'
+					);
+				}
+
 				// Flip status chip if it was overdue/pending/failing → healthy.
 				$mainRow.removeClass( 'cp-status-overdue cp-status-pending cp-status-failing' )
 				        .addClass( 'cp-status-healthy' )
